@@ -1,0 +1,63 @@
+# Entrega
+
+```{r}
+rm(list = ls())
+library(readr)
+library(rio)
+
+lkXLSX1="https://github.com/Rosales2003/Estadistica-Politica-2/raw/main/Data_Pais_Regimen.xlsx"
+dataExcel1=import(lkXLSX1)
+
+lkXLSX2="https://github.com/Rosales2003/Estadistica-Politica-2/raw/main/Data_Pais_PBI.xlsx"
+dataExcel2=import(lkXLSX2)
+
+lkXLSX3="https://github.com/Rosales2003/Estadistica-Politica-2/raw/main/Data_Pais_Inmigrantes.xlsx"
+dataExcel3=import(lkXLSX3)
+
+lkXLSX4="https://github.com/Rosales2003/Estadistica-Politica-2/raw/main/Data_Pais_IDH.xlsx"
+dataExcel4=import(lkXLSX4)
+
+lkXLSX5="https://github.com/Rosales2003/Estadistica-Politica-2/raw/main/Data_Pais_Crimen.xlsx"
+dataExcel5=import(lkXLSX5)
+
+lkXLSX6="https://github.com/Rosales2003/Estadistica-Politica-2/raw/main/Data_Pais_Continente.xlsx"
+dataExcel6=import(lkXLSX6)
+
+lkXLSX7="https://github.com/Rosales2003/Estadistica-Politica-2/raw/main/Data_Pais_Alfabetismo.xlsx"
+dataExcel7=import(lkXLSX7)
+```
+
+```{r}
+dataExcel1$PAIS=trimws(dataExcel1$PAIS,whitespace = "[\\h\\v]")
+dataExcel2$PAIS=trimws(dataExcel2$PAIS,whitespace = "[\\h\\v]")
+```
+
+```{r}
+base1=merge(dataExcel1,dataExcel2, by.x = "PAIS", by.y = 'PAIS')
+head(base1)
+```
+
+```{r}
+base2=merge(base1,dataExcel3, by.x = "PAIS", by.y = 'PAIS')
+head(base2)
+```
+
+```{r}
+base3=merge(base2,dataExcel4, by.x = "PAIS", by.y = 'PAIS')
+head(base3)
+```
+
+```{r}
+base4=merge(base3,dataExcel5, by.x = "PAIS", by.y = 'PAIS')
+head(base4)
+```
+
+```{r}
+base5=merge(base4,dataExcel6, by.x = "PAIS", by.y = 'PAIS')
+head(base5)
+```
+
+```{r}
+basefinal=merge(base5,dataExcel7, by.x = "PAIS", by.y = 'PAIS')
+head(basefinal)
+```
