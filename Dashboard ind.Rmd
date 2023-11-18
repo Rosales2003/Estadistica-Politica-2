@@ -1,0 +1,262 @@
+---
+title: "Niveles de criminalidad en Europa y Asia durante el 2021"
+author: "Luis Rosales y Bayardo Mujica"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(AER)
+library(BBmisc)
+library(cluster)
+library(DescTools)
+library(dplyr)
+library(DT)
+library(factoextra)
+library(flexdashboard)
+library(ggplot2)
+library(ggrepel)
+library(kableExtra)
+library(knitr)
+library(lsr)
+library(MASS)
+library(magrittr)
+library(modelsummary)
+library(readr)
+library(rvest)
+library(rio)
+library(sjPlot)
+library(sp)
+library(summarytools)
+library(tidyverse)
+
+library(rgdal)
+
+rm(list = ls())
+link_datacrimen="https://github.com/Rosales2003/Estadistica-Politica-2/raw/main/Data_Eurasia_Crimen.xlsx"
+
+datacrimen=import(link_datacrimen)
+```
+
+```{r include=FALSE}
+str(datacrimen)
+```
+
+```{r include=FALSE}
+datacrimen$CONTINENTE=as.factor(datacrimen$CONTINENTE)
+datacrimen$CRIMEN=as.numeric(datacrimen$CRIMEN)
+datacrimen$ALFABETO=as.numeric(datacrimen$ALFABETO)
+datacrimen$INMIGRANTES=as.numeric(datacrimen$INMIGRANTES)
+datacrimen$REGIMEN_POL=as.factor(datacrimen$REGIMEN_POL)
+datacrimen$PBI=as.numeric(datacrimen$PBI)
+datacrimen$IDH=as.numeric(datacrimen$IDH)
+```
+
+```{r include=FALSE}
+str(datacrimen)
+```
+
+```{r include=FALSE}
+datacrimen=datacrimen[complete.cases(datacrimen),]
+```
+
+```{r include=FALSE}
+dataClus = datacrimen[,c(4,5,7,8)]
+row.names(dataClus)=datacrimen$PAIS
+```
+
+```{r include=FALSE}
+g.dist=daisy(dataClus, metric="gower")
+```
+
+# Índidces de criminalidad en Europa y Asia
+
+## Column {data-width="500"}
+
+### Mapa de índice de criminalidad en Europa y Asia durante el 2021
+
+```{r include=FALSE}
+
+#debemos agregar el ISO para el mapa
+
+ISO = "https://gist.github.com/brenes/1095110/raw/c8f208b03485ba28f97c500ab7271e8bce43b9c6/paises.csv"
+dataISO = read.csv(ISO)
+
+#Eliminando columnas innecesarias:
+dataISO = dataISO[, -c(2:4, 6)]
+
+newnames = c("PAIS", "ISO3_CODE")
+names(dataISO) = newnames
+
+dataISOvar = merge(datacrimen, dataISO, by = "PAIS")
+```
+
+```{r include=FALSE}
+## SUBDATA: VARIABLE INDEPENDIENTE, PAIS E ISO:
+varindep = dataISOvar[, c(1, 3, 16)]
+```
+
+```{r include=FALSE}
+mapDIS = sf::read_sf("./SHAPEFILES/shapes_mundo.shp") # shapefile
+```
+
+```{r include=FALSE}
+mapDIS2 = merge(mapDIS,
+                varindep,
+                by.x = 'ISO3_CODE',
+                by.y = 'ISO3_CODE',
+                all.x = T) #siempre primero el shape
+names(mapDIS2)
+```
+
+```{r}
+### Mapa de variable dependiente
+
+mapaleyendaL = ggplot(mapDIS2) + geom_sf() + theme_light()
+
+mapaleyL = mapaleyendaL + geom_sf(data = mapDIS2,
+                                  aes(fill = CRIMEN),
+                                  color = "gray")
+
+mapa = mapaleyL + coord_sf() + theme_void() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        legend.position = "bottom") + 
+  labs(fill = " ") + theme(legend.text = element_text(size = 10)) +
+  labs(title = "índice de criminalidad en Euroasia") +
+  theme(plot.title = element_text(color = "black",
+                                  size = 10,
+                                  face = "bold")
+        )
+
+mapa
+```
+
+## Column {data-width="500"}
+
+### Tabla
+
+```{r include=FALSE}
+crimen = datacrimen[,c(2,3)]
+datatable(crimen, filter = "top")
+```
+
+# Analisis de conglomerados
+
+## Column {data-width="500"}
+
+### Mapa de conglomerados (DIANA)
+
+```{r include=FALSE}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "diana")
+```
+
+```{r include=FALSE}
+set.seed(123)
+res.diana <- hcut(g.dist, k = 3,hc_func='diana')
+dataClus$diana=res.diana$cluster
+```
+
+```{r include=FALSE}
+fviz_silhouette(res.diana,print.summary = F)
+```
+
+```{r include=FALSE}
+silDIANA=data.frame(res.diana$silinfo$widths)
+silDIANA$country=row.names(silDIANA)
+poorDIANA=silDIANA[silDIANA$sil_width<0,'country']%>%sort()
+poorDIANA
+```
+
+```{r include=FALSE}
+aggregate(.~ diana, data=dataClus,mean)
+```
+
+```{r include=FALSE}
+datacrimen$dianaIDHpoor=datacrimen$PAIS%in%poorDIANA
+datacrimen$dianaIDH=as.ordered(dataClus$diana)
+dataClus$diana=NULL
+```
+
+```{r include=FALSE}
+proyeccion = cmdscale(g.dist, k=2,add = T) 
+head(proyeccion$points,20)
+```
+
+```{r include=FALSE}
+datacrimen$dim1 <- proyeccion$points[,1]
+datacrimen$dim2 <- proyeccion$points[,2]
+```
+
+```{r include=FALSE}
+base= ggplot(datacrimen,aes(x=dim1, y=dim2,label=row.names(dataClus))) 
+base + geom_text_repel(size=3, max.overlaps = 50,min.segment.length = unit(0, 'lines'))
+```
+
+```{r}
+DIANAlabels=ifelse(datacrimen$dianaIDHpoor,datacrimen$PAIS,'')
+
+dianaPlot=base + geom_point(size=3,
+                            aes(color=dianaIDH)) + 
+          labs(title = "DIANA")
+
+dianaPlot + geom_text_repel(size=4,
+                            aes(label=PAIS), 
+                            max.overlaps = 50,
+                            min.segment.length = unit(0, 'lines'))
+```
+
+## Column {data-width="500"}
+
+### Tabla con las medias por Conglomerados
+
+```{r}
+tablaClus = datacrimen %>% 
+  group_by(dianaIDH) %>%
+  summarize (NUMERODECLUSTERS = n(),
+             PRIMERPROMEDIO = round(mean(ALFABETO, na.rm = T),2),
+             SEGUNDOPROMEDIO = round(mean(INMIGRANTES, na.rm = T),2),
+             TERCERPROMEDIO = round(mean(PBI, na.rm = T),2),
+             CUARTOPROMEDIO = round(mean(IDH, na.rm = T),2))
+```
+
+```{r}
+colnames(tablaClus) <- c("Cluster",
+                        "Número de países",
+                        "Tasa de alfabetismo (%)",
+                        "Tasa de inmigrantes (%)",
+                        "PBI", 
+                        "IDH (%)")
+```
+
+```{r}
+tablaClus%>%
+  kable(caption = "")%>%
+  kableExtra::kable_styling(full_width = T)
+```
+
+# Modelamiento del crimen
+
+## Column {data-width="600"}
+
+### Modelo de regresión (solo variables independientes)
+
+```{r}
+modelo1=lm(CRIMEN~ALFABETO+REGIMEN_POL+INMIGRANTES, data = datacrimen)
+summary(modelo1)
+```
+
+
+### Modelo de regresión (variables independientes y de control)
+
+```{r}
+modelo2=lm(CRIMEN~ALFABETO+REGIMEN_POL+INMIGRANTES+CONTINENTE+PBI+IDH, data = datacrimen)
+summary(modelo2)
+```
+
+## Column {data-width="400"}
+
+### Interpretación
+
+Se puede ver que las variables de control hicieron de que aumente el modelo de manera positiva; asimismo, sigue siendo valido por el pvalue. Por otro lado, solo Monarquía y el IDH afectan al modelo de manera significativa
